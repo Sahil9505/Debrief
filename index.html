@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Debrief — the meeting copilot that turns talk into tasks</title>
+<meta name="description" content="Debrief listens to your meetings and resolves the chaos of transcripts into owned, dated action items — no dashboards to fill in, no notes to write." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0a0e17;
+    --bg-grad-1:#0c1322;
+    --bg-grad-2:#080b12;
+    --elev:#0f1623;
+    --card:#121b2b;
+    --card-2:#0e1622;
+    --border:rgba(255,255,255,0.09);
+    --border-strong:rgba(255,255,255,0.16);
+    --text:#e7ecf5;
+    --text-dim:#94a0b8;
+    --text-faint:#5e6a82;
+    --amber:#ffb000;
+    --amber-dim:#d99500;
+    --amber-soft:rgba(255,176,0,0.10);
+    --amber-line:rgba(255,176,0,0.35);
+    --signal:#4fd1a5;
+    --danger:#ff6b6b;
+    --shadow:0 24px 60px -28px rgba(0,0,0,0.85);
+    --grid:rgba(255,255,255,0.035);
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --display:'Space Grotesk',system-ui,-apple-system,sans-serif;
+  }
+  html[data-theme="light"]{
+    --bg:#f3efe6;
+    --bg-grad-1:#f7f3ea;
+    --bg-grad-2:#ece6d8;
+    --elev:#ffffff;
+    --card:#ffffff;
+    --card-2:#fbf8f1;
+    --border:rgba(12,18,30,0.12);
+    --border-strong:rgba(12,18,30,0.22);
+    --text:#10151f;
+    --text-dim:#4d566b;
+    --text-faint:#8a93a6;
+    --amber:#b45309;
+    --amber-dim:#945012;
+    --amber-soft:rgba(180,83,9,0.10);
+    --amber-line:rgba(180,83,9,0.30);
+    --signal:#0f9d76;
+    --danger:#d6453d;
+    --shadow:0 22px 50px -30px rgba(40,30,10,0.45);
+    --grid:rgba(12,18,30,0.04);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--display);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+    line-height:1.5;
+  }
+  body::before{
+    content:"";
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(900px 500px at 78% -8%, var(--amber-soft), transparent 60%),
+      linear-gradient(180deg,var(--bg-grad-1),var(--bg-grad-2));
+  }
+  body::after{
+    content:"";
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      linear-gradient(var(--grid) 1px,transparent 1px),
+      linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(circle at 50% 30%,black,transparent 85%);
+    -webkit-mask-image:radial-gradient(circle at 50% 30%,black,transparent 85%);
+  }
+  #root{position:relative;z-index:1;}
+  a{color:inherit;text-decoration:none;}
+  ::selection{background:var(--amber);color:#0a0e17;}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px;width:100%;}
+  .mono{font-family:var(--mono);}
+  .eyebrow{
+    font-family:var(--mono);font-size:12px;letter-spacing:0.22em;text-transform:uppercase;
+    color:var(--amber);display:inline-flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--amber-line);}
+
+  /* ---------- header ---------- */
+  header.nav{
+    position:sticky;top:0;z-index:40;
+    backdrop-filter:blur(14px);
+    background:color-mix(in srgb, var(--bg) 72%, transparent);
+    border-bottom:1px solid var(--border);
+  }
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:68px;gap:16px;}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:0.02em;font-size:18px;}
+  .brand .mark{
+    width:30px;height:30px;border-radius:8px;border:1px solid var(--amber-line);
+    display:grid;place-items:center;color:var(--amber);font-family:var(--mono);font-weight:600;font-size:13px;
+    background:var(--amber-soft);
+  }
+  .nav-links{display:flex;align-items:center;gap:28px;}
+  .nav-links a{font-size:14px;color:var(--text-dim);transition:color .2s;}
+  .nav-links a:hover{color:var(--text);}
+  .nav-right{display:flex;align-items:center;gap:12px;}
+
+  .btn{
+    font-family:var(--display);font-weight:600;font-size:14px;cursor:pointer;
+    border:1px solid var(--border-strong);background:transparent;color:var(--text);
+    padding:10px 16px;border-radius:10px;transition:transform .18s,background .2s,border-color .2s,box-shadow .2s;
+    display:inline-flex;align-items:center;gap:8px;line-height:1;
+  }
+  .btn:hover{transform:translateY(-1px);border-color:var(--amber-line);}
+  .btn-primary{
+    background:var(--amber);color:#0a0e17;border-color:var(--amber);
+    box-shadow:0 0 0 0 var(--amber-soft);
+  }
+  .btn-primary:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 30px -10px var(--amber);
+  }
+  .btn-ghost{background:color-mix(in srgb,var(--card) 60%, transparent);}
+
+  .icon-btn{
+    width:40px;height:40px;border-radius:10px;border:1px solid var(--border-strong);
+    background:transparent;color:var(--text);cursor:pointer;display:grid;place-items:center;
+    transition:transform .18s,border-color .2s,background .2s;
+  }
+  .icon-btn:hover{transform:translateY(-1px);border-color:var(--amber-line);background:var(--amber-soft);}
+
+  /* ---------- hero ---------- */
+  .hero{padding:72px 0 40px;}
+  .hero-grid{display:grid;grid-template-columns:1.02fr 1.18fr;gap:48px;align-items:center;}
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;
+    color:var(--amber);border:1px solid var(--amber-line);border-radius:999px;padding:6px 12px;
+    background:var(--amber-soft);
+  }
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber);}
+  h1.hero-title{
+    font-size:clamp(34px,5.4vw,60px);line-height:1.02;letter-spacing:-0.02em;margin:22px 0 0;font-weight:700;
+  }
+  h1.hero-title .accent{color:var(--amber);}
+  .hero-sub{color:var(--text-dim);font-size:clamp(15px,1.7vw,18px);max-width:46ch;margin:20px 0 0;}
+  .hero-cta{display:flex;align-items:center;gap:14px;margin-top:30px;flex-wrap:wrap;}
+  .hero-note{margin-top:18px;font-family:var(--mono);font-size:12px;color:var(--text-faint);}
+
+  /* ---------- live panels ---------- */
+  .stage{
+    border:1px solid var(--border);border-radius:16px;background:var(--card-2);
+    box-shadow:var(--shadow);overflow:hidden;display:grid;grid-template-columns:1fr 1fr;min-height:430px;
+  }
+  .panel{padding:18px 18px 22px;position:relative;}
+  .panel.left{border-right:1px solid var(--border);}
+  .panel-head{
+    display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);
+    font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-faint);margin-bottom:14px;
+  }
+  .rec{display:inline-flex;align-items:center;gap:7px;color:var(--danger);}
+  .rec .pulse{width:8px;height:8px;border-radius:50%;background:var(--danger);animation:blink 1.4s infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+  .line{
+    display:grid;grid-template-columns:auto 1fr;gap:10px;padding:9px 10px;border-radius:9px;
+    font-family:var(--mono);font-size:12.5px;line-height:1.45;margin-bottom:6px;
+    border:1px solid transparent;
+  }
+  .line .ts{color:var(--amber);white-space:nowrap;opacity:.85;}
+  .line .who{color:var(--text-dim);}
+  .line .who b{color:var(--text);font-weight:600;}
+  .line.active{background:var(--amber-soft);border-color:var(--amber-line);}
+
+  .panel.right .panel-head{color:var(--signal);}
+  .task{
+    border:1px solid var(--border);border-radius:11px;padding:12px 13px;margin-bottom:10px;
+    background:var(--card);position:relative;overflow:hidden;
+  }
+  .task .row1{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .task .owner{font-family:var(--mono);font-size:11px;color:var(--text-dim);}
+  .task .due{font-family:var(--mono);font-size:11px;color:var(--amber);}
+  .task .body{font-size:13.5px;margin-top:7px;color:var(--text);line-height:1.4;}
+  .tag{
+    font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    padding:3px 8px;border-radius:6px;border:1px solid var(--border-strong);color:var(--text-dim);
+  }
+  .tag.blocked{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent);background:color-mix(in srgb,var(--danger) 12%,transparent);}
+  .tag.done{color:var(--signal);border-color:color-mix(in srgb,var(--signal) 40%,transparent);background:color-mix(in srgb,var(--signal) 12%,transparent);}
+
+
+
+  .feed-cursor{display:inline-block;width:7px;height:14px;background:var(--amber);margin-left:2px;vertical-align:-2px;animation:blink 1s steps(1) infinite;}
+
+  /* ---------- section shells ---------- */
+  section.block{padding:84px 0;position:relative;}
+  .sec-head{max-width:640px;margin-bottom:42px;}
+  .sec-head h2{font-size:clamp(26px,3.6vw,40px);letter-spacing:-0.02em;margin:16px 0 0;font-weight:700;line-height:1.05;}
+  .sec-head p{color:var(--text-dim);font-size:16px;margin-top:14px;}
+
+  /* ---------- product board ---------- */
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .col{border:1px solid var(--border);border-radius:14px;background:var(--card-2);padding:14px;}
+  .col-head{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:11px;
+    text-transform:uppercase;letter-spacing:.12em;color:var(--text-faint);margin-bottom:12px;}
+  .col-head .count{color:var(--text-dim);}
+  .card{
+    border:1px solid var(--border);border-radius:11px;background:var(--card);padding:13px;margin-bottom:11px;
+    cursor:default;transition:transform .2s,border-color .2s,box-shadow .2s;
+  }
+  .card:hover{transform:translateY(-3px);border-color:var(--amber-line);box-shadow:0 14px 30px -20px rgba(0,0,0,.7);}
+  .card .ck{display:flex;align-items:center;gap:9px;}
+  .card .ck .box{width:15px;height:15px;border-radius:5px;border:1.5px solid var(--text-faint);flex:0 0 auto;}
+  .card .ck .box.on{background:var(--signal);border-color:var(--signal);position:relative;}
+  .card .ck .box.on::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #0a0e17;border-width:0 2px 2px 0;transform:rotate(45deg);}
+  .card .title{font-size:13.5px;margin-top:11px;line-height:1.35;}
+  .card .meta{display:flex;align-items:center;justify-content:space-between;margin-top:11px;}
+  .avatar{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:10px;font-weight:600;color:#0a0e17;}
+  .strike{text-decoration:line-through;color:var(--text-faint);}
+
+  /* ---------- nudge ---------- */
+  .nudge-wrap{margin-top:34px;display:grid;grid-template-columns:1.1fr .9fr;gap:22px;align-items:stretch;}
+  .nudge{
+    border:1px solid var(--amber-line);border-radius:16px;background:linear-gradient(180deg,var(--amber-soft),transparent 70%),var(--card);
+    padding:20px 22px;display:flex;flex-direction:column;gap:14px;
+  }
+  .nudge .who{font-family:var(--mono);font-size:11px;color:var(--amber);letter-spacing:.08em;text-transform:uppercase;}
+  .nudge .msg{font-size:15px;line-height:1.5;}
+  .nudge .msg b{color:var(--text);}
+  .nudge .actions{display:flex;gap:10px;margin-top:auto;flex-wrap:wrap;}
+  .nudge .mini{font-size:13px;padding:9px 14px;border-radius:9px;border:1px solid var(--border-strong);background:transparent;color:var(--text);cursor:pointer;transition:transform .18s,border-color .2s,background .2s;}
+  .nudge .mini:hover{transform:translateY(-1px);border-color:var(--amber-line);}
+  .nudge .mini.go{background:var(--amber);color:#0a0e17;border-color:var(--amber);}
+  .nudge-side{border:1px solid var(--border);border-radius:16px;background:var(--card-2);padding:20px 22px;}
+  .nudge-side h4{margin:0 0 12px;font-size:15px;}
+  .nudge-side ul{margin:0;padding-left:18px;color:var(--text-dim);font-size:13.5px;line-height:1.9;}
+  .nudge-side li b{color:var(--text);}
+
+  /* ---------- steps ---------- */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  .step{border:1px solid var(--border);border-radius:14px;background:var(--card-2);padding:22px;transition:transform .2s,border-color .2s;}
+  .step:hover{transform:translateY(-4px);border-color:var(--amber-line);}
+  .step .num{font-family:var(--mono);font-size:12px;color:var(--amber);}
+  .step h3{margin:12px 0 8px;font-size:18px;}
+  .step p{margin:0;color:var(--text-dim);font-size:14px;line-height:1.55;}
+
+  /* ---------- cta ---------- */
+  .cta-box{
+    border:1px solid var(--amber-line);border-radius:22px;padding:56px 40px;text-align:center;
+    background:radial-gradient(700px 300px at 50% -20%,var(--amber-soft),transparent 60%),var(--card);
+    position:relative;overflow:hidden;
+  }
+  .cta-box h2{font-size:clamp(26px,4vw,42px);letter-spacing:-0.02em;margin:0 auto;max-width:18ch;line-height:1.05;}
+  .cta-box p{color:var(--text-dim);margin:16px auto 0;max-width:48ch;font-size:16px;}
+  .cta-box .hero-cta{justify-content:center;margin-top:28px;}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid var(--border);padding:40px 0 60px;color:var(--text-faint);}
+  .foot-inner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center;}
+  .foot-inner .mono{font-size:12px;}
+  .foot-links{display:flex;gap:20px;font-size:13px;flex-wrap:wrap;}
+  .foot-links a{color:var(--text-dim);}
+  .foot-links a:hover{color:var(--text);}
+  .honest{font-size:12.5px;color:var(--text-faint);max-width:60ch;margin-top:18px;line-height:1.6;}
+
+  /* ---------- toast ---------- */
+  .toast{
+    position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:90;
+    border:1px solid var(--amber-line);background:var(--elev);color:var(--text);
+    border-radius:12px;padding:13px 18px;font-family:var(--mono);font-size:13px;
+    box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;
+  }
+  .toast .tdot{width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber);}
+
+  /* reveal helper */
+  .reveal{will-change:transform,opacity;}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:980px){
+    .hero-grid{grid-template-columns:1fr;gap:36px;}
+    .board{grid-template-columns:1fr;}
+    .nudge-wrap{grid-template-columns:1fr;}
+    .steps{grid-template-columns:1fr;}
+  }
+  @media (max-width:680px){
+    .nav-links{display:none;}
+    .stage{grid-template-columns:1fr;min-height:0;}
+    .panel.left{border-right:none;border-bottom:1px solid var(--border);}
+    .hero{padding:48px 0 24px;}
+    section.block{padding:60px 0;}
+    .cta-box{padding:40px 22px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms!important;transition-duration:.001ms!important;}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "framer-motion": "https://esm.sh/framer-motion@11.11.17?external=react,react-dom",
+    "htm": "https://esm.sh/htm@3.1.1"
+  }
+}
+</script>
+
+<script type="module">
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createRoot } from "react-dom/client";
+import { motion, AnimatePresence, useInView, useReducedMotion } from "framer-motion";
+import htm from "htm";
+const html = htm.bind(React.createElement);
+
+const AVATARS = {
+  Lena:{c:"#ffb000"}, Marco:{c:"#4fd1a5"}, Priya:{c:"#7aa2ff"}, You:{c:"#ff8fab"}
+};
+
+/* ---------- theme ---------- */
+function useTheme(){
+  const [t,setT] = useState(()=> (document.documentElement.dataset.theme||"dark"));
+  const toggle = useCallback(()=>{
+    setT(prev=>{
+      const next = prev==="dark"?"light":"dark";
+      document.documentElement.dataset.theme = next;
+      try{ localStorage.setItem("debrief-theme",next); }catch(e){}
+      return next;
+    });
+  },[]);
+  useEffect(()=>{
+    try{ const saved=localStorage.getItem("debrief-theme"); if(saved) {setT(saved); document.documentElement.dataset.theme=saved;} }catch(e){}
+  },[]);
+  return [t,toggle];
+}
+
+/* ---------- shared transition presets ---------- */
+const ease = [0.22,1,0.36,1];
+function Reveal({children, y=24, delay=0, className}){
+  const ref = useRef(null);
+  const inView = useInView(ref,{once:true,margin:"-80px"});
+  const reduce = useReducedMotion();
+  return html`<${motion.div}
+    ref=${ref}
+    className=${"reveal "+(className||"")}
+    initial=${{opacity:0, y: reduce?0:y}}
+    animate=${inView?{opacity:1,y:0}:{}}
+    transition=${{duration:0.7, ease, delay}}
+  >${children}<//>`;
+}
+
+/* ---------- header ---------- */
+function Header({theme,toggle}){
+  return html`<header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#top"><span class="mark">DB</span> Debrief</a>
+      <nav class="nav-links">
+        <a href="#product">Product</a>
+        <a href="#how">How it works</a>
+        <a href="#honest">Why Debrief</a>
+      </nav>
+      <div class="nav-right">
+        <button class="icon-btn" onClick=${toggle} aria-label="Toggle theme" title="Toggle theme">
+          ${theme==="dark"
+            ? html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`
+            : html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`}
+        </button>
+        <a class="btn btn-primary" href="#cta">Request early access</a>
+      </div>
+    </div>
+  </header>`;
+}
+
+/* ---------- hero stage (signature animation) ---------- */
+const TRANSCRIPT = [
+  {ts:"09:14", who:"Lena",  text:"okay — who's actually sending the Q3 report?"},
+  {ts:"09:14", who:"Marco", text:"I can, but I need the vendor numbers first"},
+  {ts:"09:15", who:"Priya", text:"I'll pull those from the dashboard tonight"},
+  {ts:"09:15", who:"Lena",  text:"so Marco owns the report, due Friday?"},
+  {ts:"09:16", who:"Marco", text:"yeah Friday works, I'll block it in"}
+];
+const TASKS = [
+  {owner:"Marco", due:"Fri Aug 22", title:"Send Q3 report to Lena", tag:["blocked","needs vendor #s"], status:"todo"},
+  {owner:"Priya", due:"Tonight",    title:"Pull vendor numbers from dashboard", tag:["todo"], status:"todo"},
+  {owner:"Lena",  due:"—",          title:"Decision logged: owner + due confirmed", tag:["done","logged"], status:"done"}
+];
+
+function HeroStage(){
+  const ref = useRef(null);
+  const inView = useInView(ref,{once:true, margin:"-120px"});
+  const reduce = useReducedMotion();
+  const [shown,setShown] = useState(reduce?TRANSCRIPT.length:0);
+  const [resolving,setResolving] = useState(reduce);
+  const [tasksShown,setTasksShown] = useState(reduce?TASKS.length:0);
+
+  useEffect(()=>{
+    if(!inView || reduce) return;
+    let i=0; let timers=[];
+    const step=()=>{
+      i++; setShown(i);
+      if(i<TRANSCRIPT.length){ timers.push(setTimeout(step,520)); }
+      else { timers.push(setTimeout(()=>setResolving(true),520));
+             timers.push(setTimeout(()=>{ let k=0; const t2=()=>{ k++; setTasksShown(k); if(k<TASKS.length) timers.push(setTimeout(t2,360)); }; t2(); },1050)); }
+    };
+    timers.push(setTimeout(step,450));
+    return ()=>timers.forEach(clearTimeout);
+  },[inView,reduce]);
+
+  return html`  <div class="stage" ref=${ref}>
+    <div class="panel left">
+      <div class="panel-head"><span>Live transcript</span>
+        <span class="rec"><span class="pulse"></span> REC · SYNCED</span>
+      </div>
+      ${TRANSCRIPT.map((l,idx)=> html`<${motion.div}
+          key=${idx}
+          className=${"line"+(idx===shown-1 && !resolving?" active":"")}
+          initial=${{opacity:0,x:-12}}
+          animate=${{opacity: idx<shown?1:0, x: idx<shown?0:-12}}
+          transition=${{duration:0.4,ease}}
+        >
+          <span class="ts">${l.ts}</span>
+          <span class="who"><b>${l.who}:</b> ${l.text}${idx===shown-1 && !resolving?html`<span class="feed-cursor"></span>`:null}</span>
+        <//>`)}
+      ${shown<TRANSCRIPT.length?null:html`<div class="line" style=${{opacity:.5}}><span class="ts">09:16</span><span class="who">transcript closed · 4 speakers</span></div>`}
+    </div>
+    <div class="panel right">
+      <div class="panel-head"><span>Resolved action items</span><span>3 OWNED</span></div>
+      ${TASKS.map((t,idx)=>{
+        const isDone = t.status==="done";
+        return html`<${motion.div}
+          key=${idx}
+          className="task"
+          initial=${{opacity:0,y:18,scale:.98}}
+          animate=${{opacity: idx<tasksShown?1:0, y: idx<tasksShown?0:18, scale: idx<tasksShown?1:.98}}
+          transition=${{duration:0.5,ease,delay: idx<tasksShown?0.04:0}}
+        >
+          <div class="row1">
+            <span class="owner">@${t.owner}</span>
+            <span class="due">${t.due}</span>
+          </div>
+          <div class="body ${isDone?'strike':''}">${t.title}</div>
+          <div style=${{marginTop:"10px",display:"flex",gap:"6px",flexWrap:"wrap"}}>
+            ${t.tag.map((tg,i)=> html`<span key=${i} class=${"tag "+(tg==="blocked"?"blocked":tg==="done"?"done":"")}>${tg}</span>`)}
+          </div>
+        <//>`;
+      })}
+    </div>
+  </div>`;
+}
+
+function Hero({theme,toggle}){
+  return html`<section class="hero" id="top">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="badge"><span class="dot"></span> EARLY ACCESS · BUILD 0.4</span>
+        <h1 class="hero-title">Meetings make <span class="accent">promises</span>.<br/>Debrief keeps them.</h1>
+        <p class="hero-sub">Debrief listens in, then turns the chaos of a transcript into owned, dated action items — assigned to a person, stamped with a deadline, and followed up on without you lifting a finger.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#cta">Request early access →</a>
+          <a class="btn btn-ghost" href="#product">See it resolve a meeting</a>
+        </div>
+        <p class="hero-note">// no notes to write. no CRM to update. no "who's doing what?" thread.</p>
+      </div>
+      <${HeroStage}/>
+    </div>
+  </section>`;
+}
+
+/* ---------- product: board + nudge ---------- */
+function Product(){
+  const cols = [
+    {name:"To do", items:[
+      {t:"Send Q3 report to Lena", who:"Marco", due:"Fri Aug 22", blocked:true, done:false},
+      {t:"Pull vendor numbers from dashboard", who:"Priya", due:"Tonight", done:false}
+    ]},
+    {name:"In progress", items:[
+      {t:"Confirm owners + due dates", who:"Lena", due:"—", done:false}
+    ]},
+    {name:"Done", items:[
+      {t:"Decision logged from standup", who:"You", due:"—", done:true}
+    ]}
+  ];
+  return html`<section class="block" id="product">
+    <div class="wrap">
+      <${Reveal}><div class="sec-head">
+        <span class="eyebrow">The product</span>
+        <h2>Not a summary. A board that's already been filled in.</h2>
+        <p>Most tools hand you a wall of notes and call it done. Debrief ships the work downstream — into a board your team actually checks, with owners and dates that came from the meeting, not from you retyping them.</p>
+      </div><//>
+      <${Reveal} delay=${0.05}>
+        <div class="board">
+          ${cols.map((col,ci)=> html`<${motion.div} className="col" key=${ci}
+              initial=${{opacity:0,y:20}} whileInView=${{opacity:1,y:0}} viewport=${{once:true,margin:"-60px"}} transition=${{duration:.6,ease,delay:ci*0.08}}>
+            <div class="col-head"><span>${col.name}</span><span class="count">${col.items.length}</span></div>
+            ${col.items.map((it,ii)=>{
+              const av = AVATARS[it.who]||{c:"#888"};
+              return html`<div class="card" key=${ii}>
+                <div class="ck"><span class=${"box"+(it.done?" on":"")}></span>
+                  <span class=${it.done?"strike":""} style=${{fontSize:"13px"}}>${it.done?"Resolved":(it.blocked?"Blocked":"Open")}</span></div>
+                <div class="title ${it.done?'strike':''}">${it.t}</div>
+                <div class="meta">
+                  <span class="avatar" style=${{background:av.c}}>${it.who[0]}</span>
+                  <span class="mono" style=${{fontSize:"11px",color: it.blocked?"var(--danger)":"var(--amber)"}}>${it.due}</span>
+                </div>
+              </div>`;
+            })}
+          <//>`)}
+        </div>
+      <//>
+
+      <${Reveal} delay=${0.05}>
+        <div class="nudge-wrap">
+          <div class="nudge">
+            <span class="who">Debrief → Marco · 4:02 PM</span>
+            <div class="msg">Heads up — your <b>"Send Q3 report"</b> is due <b>Fri Aug 22</b> and still blocked on vendor numbers from Priya. Want me to nudge her?</div>
+            <div class="actions">
+              <button class="mini go">Nudge Priya</button>
+              <button class="mini">Snooze 1 day</button>
+              <button class="mini">Show context</button>
+            </div>
+          </div>
+          <div class="nudge-side">
+            <h4 class="mono" style=${{fontFamily:"var(--mono)",fontSize:"12px",letterSpacing:".1em",textTransform:"uppercase",color:"var(--text-faint)"}}>Follow-up that earns its keep</h4>
+            <ul>
+              <li><b>Nudges</b> fire only when a due date is at risk.</li>
+              <li><b>Context</b> travels with every ping — nobody asks "which meeting?"</li>
+              <li><b>You stay the sender.</b> Debrief drafts; you approve.</li>
+            </ul>
+          </div>
+        </div>
+      <//>
+    </div>
+  </section>`;
+}
+
+/* ---------- how it works ---------- */
+function How(){
+  const steps=[
+    {n:"01",h:"Connect the call",p:"Drop Debrief into Zoom, Meet, or Teams. It records silently and transcribes in real time — no bot awkwardly introducing itself."},
+    {n:"02",h:"We resolve the noise",p:"Speakers, decisions, and commitments get extracted and matched to people. Vague promises become specific, dated tasks."},
+    {n:"03",h:"It follows through",p:"Owners get a nudge before things slip. You get a clean board and a paper trail — not another 'action items?' thread."}
+  ];
+  return html`<section class="block" id="how">
+    <div class="wrap">
+      <${Reveal}><div class="sec-head">
+        <span class="eyebrow">How it works</span>
+        <h2>Three steps. Zero retroactive note-taking.</h2>
+      </div><//>
+      <div class="steps">
+        ${steps.map((s,i)=> html`<${Reveal} key=${i} delay=${i*0.08}><div class="step">
+          <div class="num">${s.n}</div>
+          <h3>${s.h}</h3>
+          <p>${s.p}</p>
+        </div><//>`)}
+      </div>
+    </div>
+  </section>`;
+}
+
+/* ---------- cta ---------- */
+function CTA(){
+  return html`<section class="block" id="cta">
+    <div class="wrap">
+      <${Reveal}><div class="cta-box">
+        <h2>Stop trusting yourself to remember the meeting.</h2>
+        <p>Debrief is in closed early access. We're onboarding teams in small batches so the follow-ups stay sharp. Tell us about your meetings and we'll send a key.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="mailto:hi@debrief.example?subject=Early%20access">Request early access →</a>
+          <a class="btn btn-ghost" href="#product">Re-watch the demo</a>
+        </div>
+      </div><//>
+    </div>
+  </section>`;
+}
+
+/* ---------- footer ---------- */
+function Footer(){
+  return html`<footer id="honest">
+    <div class="wrap">
+      <div class="foot-inner">
+        <div class="brand"><span class="mark">DB</span> Debrief</div>
+        <div class="foot-links">
+          <a href="#product">Product</a>
+          <a href="#how">How it works</a>
+          <a href="#cta">Early access</a>
+          <a href="#top">Back to top</a>
+        </div>
+      </div>
+      <p class="honest mono">// HONEST NOTE: Debrief is a concept build. The transcript, tasks, and follow-up above are a representative demo — no real user data, no invented customer counts, no logos. Copy is mine; the product is imaginary until the early-access keys go out.</p>
+      <p class="honest mono">// tip: there's a small easter egg in here. ↑ ↑ ↓ ↓ ← → ← → b a</p>
+    </div>
+  </footer>`;
+}
+
+/* ---------- konami toast ---------- */
+const KONAMI = ["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowLeft","ArrowRight","ArrowLeft","ArrowRight","b","a"];
+function Konami(){
+  const [toast,setToast] = useState(false);
+  useEffect(()=>{
+    let seq=[];
+    const onKey=(e)=>{
+      seq.push(e.key.length===1?e.key.toLowerCase():e.key);
+      seq = seq.slice(-KONAMI.length);
+      if(KONAMI.every((k,i)=>seq[i]===k)){
+        setToast(true);
+        setTimeout(()=>setToast(false),4200);
+      }
+    };
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  },[]);
+  return html`<${AnimatePresence}>
+    ${toast && html`<${motion.div} className="toast"
+      initial=${{opacity:0,y:30}} animate=${{opacity:1,y:0}} exit=${{opacity:0,y:30}}
+      transition=${{duration:.4,ease}}>
+      <span class="tdot"></span> SIGNAL ACQUIRED · you found the ops room. early access priority unlocked.
+    <//>`}
+  <//>`;
+}
+
+function App(){
+  const [theme,toggle] = useTheme();
+  return html`<${React.Fragment}>
+    <${Header} theme=${theme} toggle=${toggle}/>
+    <${Hero} theme=${theme} toggle=${toggle}/>
+    <${Product}/>
+    <${How}/>
+    <${CTA}/>
+    <${Footer}/>
+    <${Konami}/>
+  <//>`;
+}
+
+createRoot(document.getElementById("root")).render(html`<${App}/>`);
+</script>
+</body>
+</html>
